@@ -111,6 +111,8 @@ async function processEmail(
     companyName: captured.company,
     title: captured.title,
     location: captured.location,
+    workMode: captured.workMode,
+    jobUrl: captured.jobUrl,
     appliedAt: captured.appliedAt.toISOString(),
     source: captured.source,
     priority: 'medium',
