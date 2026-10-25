@@ -14,6 +14,7 @@ import { mailer } from '../../lib/mailer.ts';
 import { generateToken, hashToken } from '../../lib/tokens.ts';
 import * as activitiesService from '../activities/activities.service.ts';
 import * as applicationsService from '../applications/applications.service.ts';
+import * as captureService from '../capture/capture.service.ts';
 import * as companiesService from '../companies/companies.service.ts';
 import * as contactsService from '../contacts/contacts.service.ts';
 import * as importsService from '../imports/imports.service.ts';
@@ -301,6 +302,7 @@ async function purgeAccount(userId: string): Promise<void> {
   await contactsService.deleteAllForUser(userId);
   await companiesService.deleteAllForUser(userId);
   await importsService.deleteAllForUser(userId);
+  await captureService.deleteAllForUser(userId);
   await usersService.deleteUser(userId); // 5. the user document itself, last
 }
 

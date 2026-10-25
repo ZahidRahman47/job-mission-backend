@@ -4,6 +4,7 @@ import { createDocument, type ZodOpenApiPathsObject } from 'zod-openapi';
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from './middleware/csrf-guard.ts';
 import { analyticsPaths } from './modules/analytics/analytics.openapi.ts';
 import { applicationsPaths } from './modules/applications/applications.openapi.ts';
+import { capturePaths } from './modules/capture/capture.openapi.ts';
 import { accountPaths, authPaths } from './modules/auth/auth.openapi.ts';
 import { SESSION_COOKIE } from './modules/auth/session-cookie.ts';
 import { companiesPaths } from './modules/companies/companies.openapi.ts';
@@ -56,6 +57,7 @@ export const openApiDocument = createDocument({
     companiesPaths,
     contactsPaths,
     importExportPaths,
+    capturePaths,
   ),
 });
 

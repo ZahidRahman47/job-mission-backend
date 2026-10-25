@@ -195,6 +195,17 @@ export async function create(
   });
 }
 
+// Email capture: has this application already been recorded (manually or by an earlier email)?
+export async function findRecentDuplicate(
+  userId: string,
+  companyName: string,
+  title: string,
+  since: Date,
+): Promise<string | null> {
+  const app = await applicationsRepository.findByCompanyAndTitle(userId, companyName, title, since);
+  return app ? app._id.toString() : null;
+}
+
 export async function list(
   userId: string,
   query: ListApplicationsQuery,

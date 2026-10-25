@@ -18,6 +18,9 @@ export const TERMINAL_STATUSES = ['accepted', 'rejected', 'withdrawn'] as const;
 
 export const SOURCES = [
   'linkedin',
+  'indeed',
+  'rozee',
+  'mustakbil',
   'company_site',
   'referral',
   'job_board',

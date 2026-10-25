@@ -318,6 +318,23 @@ export async function deleteAllForUser(userId: string): Promise<void> {
   await ApplicationModel.deleteMany({ userId }).exec();
 }
 
+// Same company and title (case-insensitive), applied on or after `since`: email capture's duplicate check.
+export function findByCompanyAndTitle(
+  userId: string,
+  companyName: string,
+  title: string,
+  since: Date,
+): Promise<ApplicationRecord | null> {
+  return ApplicationModel.findOne({
+    userId,
+    companyName: new RegExp(`^${escapeRegex(companyName)}$`, 'i'),
+    title: new RegExp(`^${escapeRegex(title)}$`, 'i'),
+    appliedAt: { $gte: since },
+  })
+    .lean<ApplicationRecord>()
+    .exec();
+}
+
 export function listAllForUser(userId: string): Promise<ApplicationRecord[]> {
   return ApplicationModel.find({ userId })
     .sort({ createdAt: 1 })

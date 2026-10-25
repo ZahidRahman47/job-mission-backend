@@ -13,6 +13,7 @@ import {
 import mongoose from 'mongoose';
 import { RateLimitedError } from '../lib/errors.ts';
 import { logger } from '../lib/logger.ts';
+import { hashToken } from '../lib/tokens.ts';
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -96,6 +97,9 @@ const byEmail = (req: Request): string => {
 
 const byIpAndEmail = (req: Request): string => `${byIp(req)}:${byEmail(req)}`;
 
+// Scripts on Google's servers share IPs, so key by the bearer token presented (hashed, never stored raw).
+const byBearer = (req: Request): string => hashToken(req.get('authorization') ?? '');
+
 function limiter(
   name: string,
   windowMs: number,
@@ -143,5 +147,7 @@ export const passwordCheckLimiter = limiter('password-check-user', 15 * MINUTE_M
 // Imports and exports read or write thousands of rows: expensive endpoints get tighter limits.
 export const importLimiter = limiter('import-user', HOUR_MS, 10, byUser);
 export const exportLimiter = limiter('export-user', HOUR_MS, 20, byUser);
+// The Gmail script calls every 5 minutes, in batches of 20: 120 calls per hour leaves headroom.
+export const captureIngestLimiter = limiter('capture-ingest-token', HOUR_MS, 120, byBearer);
 // Default for every authenticated route.
 export const userRateLimit = limiter('user-default', MINUTE_MS, 300, byUser);

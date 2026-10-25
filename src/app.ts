@@ -8,6 +8,7 @@ import { csrfGuard } from './middleware/csrf-guard.ts';
 import { errorHandler } from './middleware/error-handler.ts';
 import { httpLogger } from './middleware/http-logger.ts';
 import { notFound } from './middleware/not-found.ts';
+import { inboundRouter } from './modules/capture/capture.routes.ts';
 import { requestId } from './middleware/request-id.ts';
 import { corsPolicy, securityHeaders } from './middleware/security.ts';
 import { openApiDocument } from './openapi.ts';
@@ -37,6 +38,9 @@ export function createApp(): express.Express {
   // 3-4. Security headers on every response; CORS answers preflights before any parsing.
   app.use(securityHeaders);
   app.use(corsPolicy);
+
+  // Gmail script ingest: bearer-token auth (no cookie, so no CSRF) and its own 2 MB body limit.
+  app.use('/api/v1/inbound', inboundRouter);
 
   // 5-6. Parse JSON bodies (over 100 KB -> 413 before our code runs) and cookies.
   app.use(express.json({ limit: '100kb' }));

@@ -1330,7 +1330,7 @@
             "in": "query",
             "name": "source",
             "schema": {
-              "description": "Comma-separated: linkedin, company_site, referral, job_board, recruiter_outreach, networking, other",
+              "description": "Comma-separated: linkedin, indeed, rozee, mustakbil, company_site, referral, job_board, recruiter_outreach, networking, other",
               "type": "string"
             }
           },
@@ -3994,7 +3994,7 @@
             "in": "query",
             "name": "source",
             "schema": {
-              "description": "Comma-separated: linkedin, company_site, referral, job_board, recruiter_outreach, networking, other",
+              "description": "Comma-separated: linkedin, indeed, rozee, mustakbil, company_site, referral, job_board, recruiter_outreach, networking, other",
               "type": "string"
             }
           },
@@ -4101,6 +4101,171 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "`RATE_LIMITED`: too many attempts; see the `Retry-After` header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/capture/token": {
+      "get": {
+        "tags": ["Email capture"],
+        "summary": "Whether a Gmail capture token exists, and when it was last used",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token status (never the token itself).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaptureTokenStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`UNAUTHENTICATED` or `SESSION_EXPIRED`: log in first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Email capture"],
+        "summary": "Create a capture token (replaces the previous one)",
+        "description": "The token is returned once. The previous token stops working immediately.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The new token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedCaptureTokenResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`UNAUTHENTICATED` or `SESSION_EXPIRED`: log in first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`CSRF_REJECTED`: missing `X-Requested-With` header or foreign origin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Email capture"],
+        "summary": "Revoke the capture token",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfHeader": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoked (or there was none)."
+          },
+          "401": {
+            "description": "`UNAUTHENTICATED` or `SESSION_EXPIRED`: log in first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`CSRF_REJECTED`: missing `X-Requested-With` header or foreign origin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inbound/gmail": {
+      "post": {
+        "tags": ["Email capture"],
+        "summary": "Store emails sent by the Gmail capture script",
+        "description": "Auth: `Authorization: Bearer <capture token>` (no cookie, no CSRF header). Up to 20 emails per call, 2 MB body. Emails already stored (same `gmailId`) are ignored, so the script can safely resend. 120 calls per hour per token.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestGmailRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "How many emails were new.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestGmailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`VALIDATION_ERROR`: invalid or unknown fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`CAPTURE_TOKEN_INVALID`: missing, unknown or revoked token."
+          },
+          "413": {
+            "description": "`PAYLOAD_TOO_LARGE`: over 2 MB."
           },
           "429": {
             "description": "`RATE_LIMITED`: too many attempts; see the `Retry-After` header.",
@@ -4466,6 +4631,9 @@
             "type": "string",
             "enum": [
               "linkedin",
+              "indeed",
+              "rozee",
+              "mustakbil",
               "company_site",
               "referral",
               "job_board",
@@ -4653,6 +4821,9 @@
             "type": "string",
             "enum": [
               "linkedin",
+              "indeed",
+              "rozee",
+              "mustakbil",
               "company_site",
               "referral",
               "job_board",
@@ -5275,6 +5446,68 @@
         "required": ["channel", "summary"],
         "additionalProperties": false
       },
+      "IngestGmailRequest": {
+        "type": "object",
+        "properties": {
+          "messages": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "gmailId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "threadId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "direction": {
+                  "type": "string",
+                  "enum": ["received", "sent"]
+                },
+                "from": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 320
+                },
+                "to": {
+                  "default": [],
+                  "maxItems": 50,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 320
+                  }
+                },
+                "subject": {
+                  "default": "",
+                  "type": "string",
+                  "maxLength": 1000
+                },
+                "sentAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                },
+                "text": {
+                  "default": "",
+                  "type": "string",
+                  "maxLength": 100000
+                }
+              },
+              "required": ["gmailId", "threadId", "direction", "from", "sentAt"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["messages"],
+        "additionalProperties": false
+      },
       "Readiness": {
         "type": "object",
         "properties": {
@@ -5641,6 +5874,9 @@
               "type": "string",
               "enum": [
                 "linkedin",
+                "indeed",
+                "rozee",
+                "mustakbil",
                 "company_site",
                 "referral",
                 "job_board",
@@ -6068,6 +6304,9 @@
             "type": "string",
             "enum": [
               "linkedin",
+              "indeed",
+              "rozee",
+              "mustakbil",
               "company_site",
               "referral",
               "job_board",
@@ -6392,6 +6631,9 @@
             "type": "string",
             "enum": [
               "linkedin",
+              "indeed",
+              "rozee",
+              "mustakbil",
               "company_site",
               "referral",
               "job_board",
@@ -6624,6 +6866,9 @@
             "type": "string",
             "enum": [
               "linkedin",
+              "indeed",
+              "rozee",
+              "mustakbil",
               "company_site",
               "referral",
               "job_board",
@@ -7190,6 +7435,96 @@
           }
         },
         "required": ["id", "fileName", "totals", "errors", "createdAt"],
+        "additionalProperties": false
+      },
+      "CaptureTokenStatusResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "active": {
+                "type": "boolean"
+              },
+              "createdAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "lastUsedAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["active", "createdAt", "lastUsedAt"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["data"],
+        "additionalProperties": false
+      },
+      "CreatedCaptureTokenResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "token": {
+                "type": "string",
+                "description": "Shown once. Paste it into the Gmail script."
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              }
+            },
+            "required": ["token", "createdAt"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["data"],
+        "additionalProperties": false
+      },
+      "IngestGmailResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "stored": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Emails not seen before."
+              },
+              "duplicates": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Already stored; ignored."
+              }
+            },
+            "required": ["stored", "duplicates"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["data"],
         "additionalProperties": false
       }
     },
