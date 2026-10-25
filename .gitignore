@@ -16,3 +16,7 @@ Thumbs.db
 
 # Docs kept local only
 *.md
+
+# Vercel output placeholder, created by its build command
+public/
+.vercel/
