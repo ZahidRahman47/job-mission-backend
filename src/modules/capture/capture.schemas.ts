@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { EMAIL_DIRECTIONS } from './capture.model.ts';
 
-// At most 20 emails per call keeps each request well under the 2 MB body limit.
+// At most 20 emails per call; the whole body must stay under 2 MB (the script sends 5 at a time).
 export const MAX_EMAILS_PER_CALL = 20;
 
 const inboundEmailSchema = z.strictObject({
@@ -16,6 +16,8 @@ const inboundEmailSchema = z.strictObject({
   sentAt: z.iso.datetime({ offset: true }),
   // The script sends plain text, trimmed to 100,000 characters.
   text: z.string().max(100_000).default(''),
+  // The HTML part (styles stripped), up to 150,000 characters; converted to text by the API.
+  html: z.string().max(150_000).default(''),
 });
 
 export const ingestGmailBody = z
@@ -30,6 +32,10 @@ export const ingestResultSchema = z
   .object({
     data: z.object({
       stored: z.number().int().meta({ description: 'Emails not seen before.' }),
+      requeued: z
+        .number()
+        .int()
+        .meta({ description: 'Sent again after no rule matched; processed again.' }),
       duplicates: z.number().int().meta({ description: 'Already stored; ignored.' }),
     }),
   })

@@ -83,7 +83,7 @@ describe('POST /inbound/gmail', () => {
     const res = await ingest(token, {
       messages: [email(), email({ gmailId: 'sent-1', direction: 'sent', to: ['hr@acme.com.pk'] })],
     }).expect(200);
-    expect(res.body).toEqual({ data: { stored: 2, duplicates: 0 } });
+    expect(res.body).toEqual({ data: { stored: 2, requeued: 0, duplicates: 0 } });
 
     const stored = await inboundEmails().find().sort({ gmailId: 1 }).toArray();
     expect(stored).toHaveLength(2);
@@ -100,11 +100,54 @@ describe('POST /inbound/gmail', () => {
   it('ignores emails it has already stored, so the script can resend safely', async () => {
     const { agent } = await loggedInUser();
     const token = await createToken(agent);
-    await ingest(token, { messages: [email()] }).expect(200);
+    const processed = email({
+      gmailId: 'indeed-done',
+      from: 'Indeed Apply <indeedapply@indeed.com>',
+      subject: 'Indeed Application: QA Engineer',
+      text: 'The following items were sent to Acme. Good luck!',
+    });
+    await ingest(token, { messages: [processed] }).expect(200);
 
-    const res = await ingest(token, { messages: [email(), email({ gmailId: 'new' })] }).expect(200);
-    expect(res.body).toEqual({ data: { stored: 1, duplicates: 1 } });
+    const res = await ingest(token, {
+      messages: [processed, email({ gmailId: 'new' })],
+    }).expect(200);
+    expect(res.body).toEqual({ data: { stored: 1, requeued: 0, duplicates: 1 } });
     expect(await inboundEmails().countDocuments()).toBe(2);
+  });
+
+  it('an email no rule matched is processed again when resent, now with its HTML part', async () => {
+    const { agent } = await loggedInUser();
+    const token = await createToken(agent);
+    // Indeed's plain-text part alone has no company: no rule matches.
+    const plainOnly = email({
+      gmailId: 'indeed-html',
+      from: 'Indeed Apply <indeedapply@indeed.com>',
+      subject: 'Indeed Application: Front-End Engineer',
+      text: 'Your application has been submitted. Good luck!',
+    });
+    await ingest(token, { messages: [plainOnly] }).expect(200);
+    expect(await inboundEmails().findOne({ gmailId: 'indeed-html' })).toMatchObject({
+      outcome: 'no_rule',
+    });
+
+    const res = await ingest(token, {
+      messages: [
+        {
+          ...plainOnly,
+          html: '<p><a href="#">Python Technologies</a> - Islamabad</p><p>The following items were sent to Python Technologies. Good luck!</p>',
+        },
+      ],
+    }).expect(200);
+    expect(res.body).toEqual({ data: { stored: 0, requeued: 1, duplicates: 0 } });
+
+    const stored = await inboundEmails().findOne({ gmailId: 'indeed-html' });
+    expect(stored).toMatchObject({ state: 'processed', outcome: 'created' });
+    expect(stored?.htmlText).toContain('Python Technologies - Islamabad');
+    expect(stored).not.toHaveProperty('html');
+    const list = await agent.get('/api/v1/applications').expect(200);
+    expect((list.body as { data: unknown[] }).data).toMatchObject([
+      { companyName: 'Python Technologies', title: 'Front-End Engineer', location: 'Islamabad' },
+    ]);
   });
 
   it("keeps each user's emails separate, even with the same Gmail ID", async () => {

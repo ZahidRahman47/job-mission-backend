@@ -8,6 +8,7 @@ import * as remindersService from '../reminders/reminders.service.ts';
 import { RAW_EMAIL_TTL_SECONDS, type InboundEmailRecord } from './capture.model.ts';
 import * as captureRepository from './capture.repository.ts';
 import { extractByRules } from './capture.rules.ts';
+import { htmlToText } from './html-to-text.ts';
 import type { IngestGmailBody } from './capture.schemas.ts';
 
 export class CaptureTokenInvalidError extends AppError {
@@ -50,17 +51,18 @@ export async function authenticate(token: string | undefined): Promise<string> {
 export async function ingestGmail(
   userId: string,
   body: IngestGmailBody,
-): Promise<{ stored: number; duplicates: number }> {
+): Promise<{ stored: number; requeued: number; duplicates: number }> {
   const expiresAt = new Date(Date.now() + RAW_EMAIL_TTL_SECONDS * 1000);
-  const stored = await captureRepository.insertNewEmails(
+  const { stored, requeued } = await captureRepository.storeEmails(
     userId,
-    body.messages.map((message) => ({
+    body.messages.map(({ html, ...message }) => ({
       ...message,
+      htmlText: htmlToText(html).slice(0, 100_000),
       sentAt: new Date(message.sentAt),
       expiresAt,
     })),
   );
-  return { stored, duplicates: body.messages.length - stored };
+  return { stored, requeued, duplicates: body.messages.length - stored - requeued };
 }
 
 // --- processing (email-capture.md §2) ---------------------------------------------------------

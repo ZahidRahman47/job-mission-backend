@@ -5498,6 +5498,11 @@
                   "default": "",
                   "type": "string",
                   "maxLength": 100000
+                },
+                "html": {
+                  "default": "",
+                  "type": "string",
+                  "maxLength": 150000
                 }
               },
               "required": ["gmailId", "threadId", "direction", "from", "sentAt"],
@@ -7513,6 +7518,12 @@
                 "maximum": 9007199254740991,
                 "description": "Emails not seen before."
               },
+              "requeued": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Sent again after no rule matched; processed again."
+              },
               "duplicates": {
                 "type": "integer",
                 "minimum": -9007199254740991,
@@ -7520,7 +7531,7 @@
                 "description": "Already stored; ignored."
               }
             },
-            "required": ["stored", "duplicates"],
+            "required": ["stored", "requeued", "duplicates"],
             "additionalProperties": false
           }
         },

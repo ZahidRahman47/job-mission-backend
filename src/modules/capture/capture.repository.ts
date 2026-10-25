@@ -40,13 +40,26 @@ export function useToken(tokenHash: string): Promise<CaptureTokenRecord | null> 
 
 export type NewInboundEmail = Pick<
   InboundEmailRecord,
-  'gmailId' | 'threadId' | 'direction' | 'from' | 'to' | 'subject' | 'text' | 'sentAt' | 'expiresAt'
+  | 'gmailId'
+  | 'threadId'
+  | 'direction'
+  | 'from'
+  | 'to'
+  | 'subject'
+  | 'text'
+  | 'htmlText'
+  | 'sentAt'
+  | 'expiresAt'
 >;
 
-// Inserts the emails not seen before; returns how many were new.
-export async function insertNewEmails(userId: string, emails: NewInboundEmail[]): Promise<number> {
-  if (emails.length === 0) return 0;
-  const result = await InboundEmailModel.bulkWrite(
+// Inserts the emails not seen before. An email sent again that no rule matched last time is
+// refreshed (it may now carry its HTML part) and queued again, so improved rules pick it up.
+export async function storeEmails(
+  userId: string,
+  emails: NewInboundEmail[],
+): Promise<{ stored: number; requeued: number }> {
+  if (emails.length === 0) return { stored: 0, requeued: 0 };
+  const inserted = await InboundEmailModel.bulkWrite(
     emails.map((email) => ({
       updateOne: {
         filter: { userId, gmailId: email.gmailId },
@@ -56,7 +69,31 @@ export async function insertNewEmails(userId: string, emails: NewInboundEmail[])
     })),
     { ordered: false },
   );
-  return result.upsertedCount;
+  const insertedIds = new Set(
+    Object.keys(inserted.upsertedIds).map((index) => emails[Number(index)]?.gmailId),
+  );
+  const resent = emails.filter((email) => !insertedIds.has(email.gmailId));
+  if (resent.length === 0) return { stored: inserted.upsertedCount, requeued: 0 };
+
+  const requeued = await InboundEmailModel.bulkWrite(
+    resent.map((email) => ({
+      updateOne: {
+        filter: { userId, gmailId: email.gmailId, state: 'ignored', outcome: 'no_rule' },
+        update: {
+          $set: {
+            text: email.text,
+            htmlText: email.htmlText,
+            state: 'received',
+            attempts: 0,
+            outcome: null,
+            error: null,
+          },
+        },
+      },
+    })),
+    { ordered: false },
+  );
+  return { stored: inserted.upsertedCount, requeued: requeued.modifiedCount };
 }
 
 // Claims the oldest waiting email (or one whose lease ran out) so two requests never process the same one.

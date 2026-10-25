@@ -36,6 +36,8 @@ const inboundEmailSchema = new Schema(
     to: { type: [String], default: [] },
     subject: { type: String, maxlength: 1000, default: '' },
     text: { type: String, maxlength: 100_000, default: '' },
+    // The HTML part converted to text at ingest (the raw HTML is never stored).
+    htmlText: { type: String, maxlength: 100_000, default: '' },
     sentAt: { type: Date, required: true },
     state: { type: String, enum: INBOUND_STATES, required: true, default: 'received' },
     attempts: { type: Number, required: true, default: 0 },
