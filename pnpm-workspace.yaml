@@ -1,0 +1,6 @@
+# Single package (not a monorepo); this file only holds pnpm settings.
+# Dependency install scripts are blocked by default (supply-chain protection). Decide per package:
+allowBuilds:
+  argon2: true # native Argon2 binding for password hashing
+  '@scarf/scarf': false # install-time usage tracking pulled in by swagger-ui; not needed
+  mongodb-memory-server: false # downloads MongoDB on first test run instead of at install

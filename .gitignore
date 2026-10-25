@@ -1,0 +1,18 @@
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Secrets: never commit real environment files
+.env
+.env.*
+!.env.example
+
+# Logs and OS noise
+*.log
+.DS_Store
+Thumbs.db
+
+# Docs kept local only
+*.md

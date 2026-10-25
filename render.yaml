@@ -1,0 +1,24 @@
+# Render Blueprint: New → Blueprint → pick this repo. Secrets marked `sync: false` are asked for
+# in the dashboard on first deploy and never stored here.
+services:
+  - type: web
+    name: mission-control-api
+    runtime: node
+    plan: free
+    # NODE_ENV=development for the install only: the build needs TypeScript (a devDependency).
+    buildCommand: corepack enable && NODE_ENV=development pnpm install --frozen-lockfile && pnpm build
+    startCommand: node dist/server.js
+    healthCheckPath: /api/v1/health/ready
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: TRUST_PROXY_HOPS
+        value: '2'
+      - key: MONGODB_URI
+        sync: false
+      - key: WEB_ORIGINS
+        sync: false
+      - key: APP_URL
+        sync: false
