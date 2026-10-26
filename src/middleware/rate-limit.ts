@@ -125,19 +125,25 @@ function limiter(
   });
 }
 
-// Login: 5 failures per (IP + email) stops guessing one account; 20 per IP stops spraying many.
-// Successful logins don't count, so a user who finally types the right password isn't punished.
+// Per-IP limits are deliberately generous. Pakistani mobile networks (Jazz, Zong, Telenor) put
+// many subscribers behind one shared public IP (carrier-grade NAT), so a tight per-IP cap would
+// lock out real people, e.g. everyone signing up from the same network after a LinkedIn post.
+// Per-IP limits stop bots and spraying; the strict protection is per account or per address.
+export const REGISTER_PER_IP_PER_HOUR = 50;
+
+// Login: 5 failures per (IP + email) stops guessing one account; 100 failures per IP stops
+// spraying many. Successful logins never count, so shared IPs don't add up normal sign-ins.
 export const loginLimiters = [
-  limiter('login-ip', 15 * MINUTE_MS, 20, byIp),
+  limiter('login-ip', 15 * MINUTE_MS, 100, byIp, { skipSuccessfulRequests: true }),
   limiter('login-ip-email', 15 * MINUTE_MS, 5, byIpAndEmail, { skipSuccessfulRequests: true }),
 ];
-export const registerLimiter = limiter('register-ip', HOUR_MS, 5, byIp);
+export const registerLimiter = limiter('register-ip', HOUR_MS, REGISTER_PER_IP_PER_HOUR, byIp);
 export const forgotPasswordLimiters = [
-  limiter('forgot-ip', HOUR_MS, 10, byIp),
+  limiter('forgot-ip', HOUR_MS, 30, byIp),
   limiter('forgot-email', HOUR_MS, 3, byEmail),
 ];
-export const verifyEmailLimiter = limiter('verify-email-ip', HOUR_MS, 10, byIp);
-export const resetPasswordLimiter = limiter('reset-password-ip', HOUR_MS, 10, byIp);
+export const verifyEmailLimiter = limiter('verify-email-ip', HOUR_MS, 30, byIp);
+export const resetPasswordLimiter = limiter('reset-password-ip', HOUR_MS, 30, byIp);
 export const resendVerificationLimiter = limiter('resend-verification-user', HOUR_MS, 3, byUser);
 // Endpoints that check the current password (change password, delete account) can be used to
 // guess it, so they get login-like limits per user.

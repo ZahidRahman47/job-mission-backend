@@ -64,7 +64,9 @@ export async function connectToDatabase(): Promise<void> {
       await mongoose.connect(env.MONGODB_URI, {
         // Give up on an attempt after 10 s instead of hanging forever.
         serverSelectionTimeoutMS: 10_000,
-        maxPoolSize: 10,
+        maxPoolSize: env.MONGODB_MAX_POOL_SIZE,
+        // Close connections idle for a minute, so quiet instances give them back to Atlas.
+        maxIdleTimeMS: 60_000,
       });
       break;
     } catch (err) {

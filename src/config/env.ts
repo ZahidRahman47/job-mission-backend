@@ -45,6 +45,16 @@ const envSchema = z.object({
 
   // Number of reverse proxies in front of the API. Decides which IP rate limits see (threat T15).
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
+
+  // MongoDB connections each running instance may hold. Serverless (Vercel sets VERCEL=1) runs
+  // many small instances at once, so each keeps few: a traffic spike must not exhaust the Atlas
+  // free tier's connection limit (~500). A long-lived server shares one bigger pool.
+  MONGODB_MAX_POOL_SIZE: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .default(process.env.VERCEL ? 3 : 10),
 });
 
 // 2. Validate process.env at startup

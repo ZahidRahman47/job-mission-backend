@@ -1,5 +1,6 @@
 // FR-015, NFR-014: brute-force and abuse limits.
 import { describe, expect, it } from 'vitest';
+import { REGISTER_PER_IP_PER_HOUR } from '../src/middleware/rate-limit.ts';
 import { client, registerUser, uniqueEmail } from './helpers.ts';
 
 describe('rate limiting', () => {
@@ -45,13 +46,24 @@ describe('rate limiting', () => {
     await client().post('/api/v1/auth/password/forgot').send({ email }).expect(429);
   });
 
-  it('limits registrations to 5 per hour per IP', async () => {
-    for (let attempt = 1; attempt <= 5; attempt++) {
+  it('allows many sign-ups from one shared IP (mobile carrier NAT), then stops bots', async () => {
+    for (let attempt = 1; attempt <= REGISTER_PER_IP_PER_HOUR; attempt++) {
       await registerUser();
     }
     await client()
       .post('/api/v1/auth/register')
-      .send({ name: 'Sixth', email: uniqueEmail(), password: 'correct-horse-battery-staple' })
+      .send({
+        name: 'One too many',
+        email: uniqueEmail(),
+        password: 'correct-horse-battery-staple',
+      })
       .expect(429);
+  });
+
+  it('many people logging in from one shared IP are never blocked by each other', async () => {
+    const people = await Promise.all(Array.from({ length: 25 }, () => registerUser()));
+    for (const person of people) {
+      await client().post('/api/v1/auth/login').send(person).expect(200);
+    }
   });
 });
