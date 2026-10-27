@@ -16,7 +16,8 @@ const contactSchema = new Schema(
 );
 
 contactSchema.index({ userId: 1, companyId: 1 });
-contactSchema.index({ userId: 1, name: 1 });
+// List order (name, then _id for people with the same name), served by the index.
+contactSchema.index({ userId: 1, name: 1, _id: 1 });
 
 export type ContactRecord = InferSchemaType<typeof contactSchema> & { _id: Types.ObjectId };
 

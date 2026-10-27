@@ -100,6 +100,36 @@ describe('reminders', () => {
     expect(await view(agent, 'overdue')).toEqual(['Overdue']);
     expect(await view(agent, 'upcoming')).toEqual(['In 3 days']);
     expect(await view(agent, 'completed')).toEqual(['Done']);
+
+    // The counts endpoint uses the same rules, so badges match the lists.
+    expect(data(await agent.get('/api/v1/reminders/counts').expect(200))).toEqual({
+      overdue: 1,
+      today: 0,
+      upcoming: 1,
+      completed: 1,
+    });
+  });
+
+  it('labels list rows with their application, so clients need no extra lookup', async () => {
+    const { agent } = await loggedInUser();
+    const app = await createApplication(agent, { companyName: 'Systems Ltd', title: 'Engineer' });
+    await addReminder(agent, { title: 'Linked', dueAt: at(-HOUR), applicationId: app.id });
+    await addReminder(agent, { title: 'Loose', dueAt: at(-2 * HOUR) });
+
+    const rows = data<(Reminder & { application: unknown })[]>(
+      await agent.get('/api/v1/reminders?view=overdue').expect(200),
+    );
+    expect(rows.map((r) => [r.title, r.application])).toEqual([
+      ['Loose', null],
+      ['Linked', { companyName: 'Systems Ltd', title: 'Engineer' }],
+    ]);
+    const upcoming = data<{ overdueReminders: { application: unknown }[] }>(
+      await agent.get('/api/v1/analytics/upcoming').expect(200),
+    );
+    expect(upcoming.overdueReminders.map((r) => r.application)).toContainEqual({
+      companyName: 'Systems Ltd',
+      title: 'Engineer',
+    });
   });
 
   it('records completion on the linked application timeline', async () => {

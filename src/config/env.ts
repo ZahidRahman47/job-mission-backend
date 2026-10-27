@@ -54,7 +54,7 @@ const envSchema = z.object({
     .int()
     .min(1)
     .max(100)
-    .default(process.env.VERCEL ? 3 : 10),
+    .default(process.env.VERCEL ? 5 : 10),
 });
 
 // 2. Validate process.env at startup

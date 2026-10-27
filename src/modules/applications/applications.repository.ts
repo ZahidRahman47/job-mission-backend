@@ -318,6 +318,16 @@ export async function deleteAllForUser(userId: string): Promise<void> {
   await ApplicationModel.deleteMany({ userId }).exec();
 }
 
+// Company and title for a set of ids (one query): labels for reminder rows.
+export function findLabels(
+  userId: string,
+  ids: string[],
+): Promise<Pick<ApplicationRecord, '_id' | 'companyName' | 'title'>[]> {
+  return ApplicationModel.find({ userId, _id: { $in: ids } }, { companyName: 1, title: 1 })
+    .lean<Pick<ApplicationRecord, '_id' | 'companyName' | 'title'>[]>()
+    .exec();
+}
+
 // Same company and title (case-insensitive), applied on or after `since`: email capture's duplicate check.
 export function findByCompanyAndTitle(
   userId: string,

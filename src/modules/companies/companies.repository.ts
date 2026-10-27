@@ -43,7 +43,9 @@ export async function list(
   };
   const [items, total] = await Promise.all([
     CompanyModel.find(filter)
-      .sort({ normalizedName: 1, _id: 1 })
+      // normalizedName is unique per user (see the model), so it alone gives a stable order and
+      // the index serves the sort.
+      .sort({ normalizedName: 1 })
       .skip((options.page - 1) * options.limit)
       .limit(options.limit)
       .lean<CompanyRecord[]>()

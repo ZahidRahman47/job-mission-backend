@@ -57,7 +57,9 @@ function watchConnection(): void {
   });
 }
 
-export async function connectToDatabase(): Promise<void> {
+// `syncIndexes: false` skips the index check here; the caller runs it later (serverless cold
+// starts, where answering the first request quickly matters more).
+export async function connectToDatabase({ syncIndexes: sync = true } = {}): Promise<void> {
   // Scenario 1: retry transient failures with exponential backoff: 1 s, 2 s, 4 s, 8 s.
   for (let attempt = 1; ; attempt++) {
     try {
@@ -89,7 +91,7 @@ export async function connectToDatabase(): Promise<void> {
 
   // Production too: a fresh database must get its unique indexes (one account per email, etc.)
   // before the first request. Existing indexes make this a quick no-op.
-  await syncIndexes();
+  if (sync) await syncIndexes();
 }
 
 // Creates every collection and index declared in the models that doesn't exist yet. Never drops

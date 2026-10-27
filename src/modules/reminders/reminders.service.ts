@@ -14,11 +14,11 @@ import * as applicationsService from '../applications/applications.service.ts';
 import * as usersService from '../users/users.service.ts';
 import type { ReminderRecord } from './reminders.model.ts';
 import * as remindersRepository from './reminders.repository.ts';
-import type {
-  CreateReminderInput,
-  ReminderView,
+import {
   REMINDER_VIEWS,
-  UpdateReminderInput,
+  type CreateReminderInput,
+  type ReminderView,
+  type UpdateReminderInput,
 } from './reminders.schemas.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -102,22 +102,29 @@ export function create(userId: string, input: CreateReminderInput): Promise<Remi
   );
 }
 
-export async function list(
+// Each list screen shows "Company · Role" on its rows: one batched lookup per page, so clients
+// never have to download every application just to label reminders.
+async function withApplications(
   userId: string,
-  query: {
-    view: (typeof REMINDER_VIEWS)[number];
-    applicationId?: string | undefined;
-    page: number;
-    limit: number;
-  },
-): Promise<{ data: ReminderView[]; meta: PageMeta }> {
-  const now = new Date();
+  reminders: ReminderRecord[],
+): Promise<ReminderView[]> {
+  const ids = [
+    ...new Set(reminders.flatMap((r) => (r.applicationId ? [r.applicationId.toString()] : []))),
+  ];
+  const labels = await applicationsService.labelsFor(userId, ids);
+  return reminders.map((r) => ({
+    ...toReminderView(r),
+    application: r.applicationId ? (labels.get(r.applicationId.toString()) ?? null) : null,
+  }));
+}
+
+// The four views, in the user's time zone. Shared by the lists and their counts, so a badge can
+// never disagree with the list it opens.
+async function viewDefinitions(userId: string, now = new Date()) {
   const timezone = await usersService.getTimezone(userId);
   const today = localDateOf(now, timezone);
   const endOfToday = zonedMidnight(addDays(today, 1), timezone);
-  const scope = query.applicationId ? { applicationId: query.applicationId } : {};
-
-  const views = {
+  return {
     overdue: { filter: { status: 'pending', dueAt: { $lt: now } }, sort: { dueAt: 1 } },
     today: {
       filter: { status: 'pending', dueAt: { $gte: now, $lt: endOfToday } },
@@ -132,7 +139,19 @@ export async function list(
     },
     completed: { filter: { status: 'completed' }, sort: { completedAt: -1 } },
   } as const;
-  const view = views[query.view];
+}
+
+export async function list(
+  userId: string,
+  query: {
+    view: (typeof REMINDER_VIEWS)[number];
+    applicationId?: string | undefined;
+    page: number;
+    limit: number;
+  },
+): Promise<{ data: ReminderView[]; meta: PageMeta }> {
+  const scope = query.applicationId ? { applicationId: query.applicationId } : {};
+  const view = (await viewDefinitions(userId))[query.view];
 
   const { items, total } = await remindersRepository.list(
     userId,
@@ -140,7 +159,24 @@ export async function list(
     view.sort,
     query,
   );
-  return { data: items.map(toReminderView), meta: pageMeta(query.page, query.limit, total) };
+  return {
+    data: await withApplications(userId, items),
+    meta: pageMeta(query.page, query.limit, total),
+  };
+}
+
+// How many reminders each view holds: the sidebar badge and tabs in one request.
+export async function counts(
+  userId: string,
+): Promise<Record<(typeof REMINDER_VIEWS)[number], number>> {
+  const views = await viewDefinitions(userId);
+  const totals = await Promise.all(
+    REMINDER_VIEWS.map((v) => remindersRepository.count(userId, views[v].filter)),
+  );
+  return Object.fromEntries(REMINDER_VIEWS.map((v, i) => [v, totals[i] ?? 0])) as Record<
+    (typeof REMINDER_VIEWS)[number],
+    number
+  >;
 }
 
 export async function get(userId: string, id: string): Promise<ReminderView> {
@@ -243,7 +279,11 @@ export async function dashboardLists(
     remindersRepository.listPendingBetween(userId, null, now, limit),
     remindersRepository.listPendingBetween(userId, now, todayRange(now, timezone).end, limit),
   ]);
-  return { overdue: overdue.map(toReminderView), today: today.map(toReminderView) };
+  const [overdueViews, todayViews] = await Promise.all([
+    withApplications(userId, overdue),
+    withApplications(userId, today),
+  ]);
+  return { overdue: overdueViews, today: todayViews };
 }
 
 export const { deleteForApplication, deleteAllForUser } = remindersRepository;

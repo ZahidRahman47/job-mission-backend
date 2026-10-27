@@ -14,6 +14,10 @@ export async function list(req: Request, res: Response): Promise<void> {
   res.status(200).json(await remindersService.list(userOf(req), query));
 }
 
+export async function counts(req: Request, res: Response): Promise<void> {
+  res.status(200).json({ data: await remindersService.counts(userOf(req)) });
+}
+
 export async function create(req: Request, res: Response): Promise<void> {
   const body = parseInput(createReminderBody, req.body, 'body');
   const reminder = await remindersService.create(userOf(req), body);

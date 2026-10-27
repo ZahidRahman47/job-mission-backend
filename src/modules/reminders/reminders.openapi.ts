@@ -5,6 +5,7 @@ import { idParams } from '../../lib/schemas.ts';
 import {
   createReminderBody,
   listRemindersQuery,
+  reminderCountsResponseSchema,
   reminderListResponseSchema,
   reminderResponseSchema,
   updateReminderBody,
@@ -14,6 +15,19 @@ const tags = ['Reminders'];
 const reminder = ok('The reminder.', reminderResponseSchema);
 
 export const remindersPaths: ZodOpenApiPathsObject = {
+  '/reminders/counts': {
+    get: {
+      tags: ['Reminders'],
+      summary: 'How many reminders each view holds (overdue, today, upcoming, completed)',
+      description:
+        'One request for the navigation badge and the view tabs; uses the same rules as the lists.',
+      security: security.sessionRead,
+      responses: {
+        '200': ok('Counts per view.', reminderCountsResponseSchema),
+        '401': errors.unauthenticated,
+      },
+    },
+  },
   '/reminders': {
     get: {
       tags,

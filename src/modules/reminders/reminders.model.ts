@@ -14,7 +14,10 @@ const reminderSchema = new Schema(
   { timestamps: true, strict: 'throw' },
 );
 
-reminderSchema.index({ userId: 1, status: 1, dueAt: 1 }); // overdue / today / upcoming views
+// Overdue / today / upcoming views, in the exact list order (dueAt, then _id): no in-memory sort.
+reminderSchema.index({ userId: 1, status: 1, dueAt: 1, _id: 1 });
+// Completed view, newest first. It grows forever, so it must not be sorted in memory.
+reminderSchema.index({ userId: 1, status: 1, completedAt: -1, _id: 1 });
 reminderSchema.index({ userId: 1, applicationId: 1, status: 1, dueAt: 1 }); // nextFollowUpAt
 // FR-044: no two *pending* reminders for the same application at the same minute. The database
 // enforces it, so even two simultaneous clicks can't create a duplicate.

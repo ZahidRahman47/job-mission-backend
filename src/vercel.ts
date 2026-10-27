@@ -4,7 +4,7 @@
 // the instances. Loaded through api/index.js after `pnpm build`.
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createApp } from './app.ts';
-import { connectToDatabase } from './db/connect.ts';
+import { connectToDatabase, syncIndexes } from './db/connect.ts';
 import { logger } from './lib/logger.ts';
 import { resumePendingDeletions } from './modules/auth/auth.service.ts';
 
@@ -13,9 +13,15 @@ let ready: Promise<void> | undefined;
 
 function init(): Promise<void> {
   ready ??= (async () => {
-    await connectToDatabase();
-    // Finish any account deletion interrupted by a previous crash (BR-022). Safe to repeat.
-    await resumePendingDeletions();
+    await connectToDatabase({ syncIndexes: false });
+    // Housekeeping off the request path: answering the first request fast matters more. Both
+    // are idempotent: existing indexes are a no-op, and an interrupted account deletion
+    // (BR-022) just finishes. If an instance is frozen first, the next cold start retries.
+    syncIndexes()
+      .then(resumePendingDeletions)
+      .catch((err: unknown) => {
+        logger.error({ err }, 'Background index sync or deletion resume failed');
+      });
   })().catch((err: unknown) => {
     // Forget the failure so the next request retries instead of failing forever.
     ready = undefined;

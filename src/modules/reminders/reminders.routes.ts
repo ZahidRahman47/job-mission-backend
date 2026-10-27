@@ -8,6 +8,7 @@ export const remindersRouter = Router();
 
 remindersRouter.use(requireAuth, userRateLimit);
 remindersRouter.get('/', reminders.list);
+remindersRouter.get('/counts', reminders.counts);
 remindersRouter.post('/', reminders.create);
 remindersRouter.get('/:id', reminders.get);
 remindersRouter.patch('/:id', reminders.update);

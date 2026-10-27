@@ -48,10 +48,29 @@ export const reminderSchema = z
     status: z.enum(['pending', 'completed']),
     completedAt: z.iso.datetime().nullable(),
     createdAt: z.iso.datetime(),
+    application: z
+      .object({ companyName: z.string(), title: z.string() })
+      .nullable()
+      .optional()
+      .meta({
+        description:
+          'The linked application, on list and dashboard rows (absent on single-reminder responses).',
+      }),
   })
   .meta({ id: 'Reminder' });
 
 export type ReminderView = z.infer<typeof reminderSchema>;
+
+export const reminderCountsResponseSchema = z
+  .object({
+    data: z.object({
+      overdue: z.number().int(),
+      today: z.number().int(),
+      upcoming: z.number().int(),
+      completed: z.number().int(),
+    }),
+  })
+  .meta({ id: 'ReminderCountsResponse' });
 export type CreateReminderInput = z.infer<typeof createReminderBody>;
 export type UpdateReminderInput = z.infer<typeof updateReminderBody>;
 

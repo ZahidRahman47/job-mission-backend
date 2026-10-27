@@ -196,6 +196,18 @@ export async function create(
 }
 
 // Email capture: has this application already been recorded (manually or by an earlier email)?
+// "Company · Role" for each id the user owns, for list rows elsewhere (reminders).
+export async function labelsFor(
+  userId: string,
+  ids: string[],
+): Promise<Map<string, { companyName: string; title: string }>> {
+  if (ids.length === 0) return new Map();
+  const rows = await applicationsRepository.findLabels(userId, ids);
+  return new Map(
+    rows.map((r) => [r._id.toString(), { companyName: r.companyName, title: r.title }]),
+  );
+}
+
 export async function findRecentDuplicate(
   userId: string,
   companyName: string,

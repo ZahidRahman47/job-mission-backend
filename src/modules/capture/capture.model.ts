@@ -52,8 +52,8 @@ const inboundEmailSchema = new Schema(
 );
 
 inboundEmailSchema.index({ userId: 1, gmailId: 1 }, { unique: true });
-// Processing sweep: pick up rows that are waiting or whose lease ran out.
-inboundEmailSchema.index({ state: 1, leaseUntil: 1 });
+// The next email to process for a user: its waiting ones, oldest first (leaseNext).
+inboundEmailSchema.index({ userId: 1, state: 1, sentAt: 1 });
 inboundEmailSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export type CaptureTokenRecord = InferSchemaType<typeof captureTokenSchema> & {

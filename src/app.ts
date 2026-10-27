@@ -2,7 +2,6 @@
 // directly. Middleware order matters; see architecture.md 3.1.
 import cookieParser from 'cookie-parser';
 import express from 'express';
-import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env.ts';
 import { csrfGuard } from './middleware/csrf-guard.ts';
 import { errorHandler } from './middleware/error-handler.ts';
@@ -11,8 +10,9 @@ import { notFound } from './middleware/not-found.ts';
 import { inboundRouter } from './modules/capture/capture.routes.ts';
 import { requestId } from './middleware/request-id.ts';
 import { corsPolicy, securityHeaders } from './middleware/security.ts';
-import { openApiDocument } from './openapi.ts';
 import { apiRouter } from './routes.ts';
+// Type only: the module itself loads on first use (see the docs block below).
+import type * as DocsModule from './docs.ts';
 
 export function createApp(): express.Express {
   const app = express();
@@ -29,10 +29,14 @@ export function createApp(): express.Express {
   // API docs, development only. Mounted before helmet because Swagger UI needs inline scripts
   // that the strict Content-Security-Policy would block.
   if (env.NODE_ENV !== 'production') {
-    app.get('/api/v1/openapi.json', (_req, res) => {
-      res.json(openApiDocument);
+    let docs: Promise<typeof DocsModule> | undefined;
+    const loadDocs = () => (docs ??= import('./docs.ts'));
+    app.get('/api/v1/openapi.json', async (_req, res) => {
+      res.json((await loadDocs()).openApiDocument);
     });
-    app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
+    app.use('/api/v1/docs', async (req, res, next) => {
+      (await loadDocs()).docsRouter(req, res, next);
+    });
   }
 
   // 3-4. Security headers on every response; CORS answers preflights before any parsing.

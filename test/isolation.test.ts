@@ -167,6 +167,10 @@ describe('lists, search, analytics and exports', () => {
       await bob.agent.get('/api/v1/analytics/summary').expect(200),
     );
     expect(summary.total).toBe(0);
+    const counts = data<Record<string, number>>(
+      await bob.agent.get('/api/v1/reminders/counts').expect(200),
+    );
+    expect(counts).toEqual({ overdue: 0, today: 0, upcoming: 0, completed: 0 });
     const csv = await bob.agent.get('/api/v1/exports/applications.csv').expect(200);
     expect(csv.text).not.toContain('Alice Co');
   });

@@ -23,6 +23,10 @@ export function findOwned(userId: string, id: string): Promise<ReminderRecord | 
   return ReminderModel.findOne({ _id: id, userId }).lean<ReminderRecord>().exec();
 }
 
+export function count(userId: string, filter: Record<string, unknown>): Promise<number> {
+  return ReminderModel.countDocuments({ userId, ...filter }).exec();
+}
+
 export async function list(
   userId: string,
   filter: Record<string, unknown>,
